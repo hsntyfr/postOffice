@@ -18,3 +18,7 @@ class City:
             return self.QueryCityTable(self, cur, conn)
         else:
             return rows[0][0]
+
+
+
+
