@@ -1,5 +1,4 @@
 import psycopg2
-
 import address
 import area as a
 import city as c
@@ -13,6 +12,7 @@ import warehouse
 import pack
 import role
 import paymentType
+from prettytable import PrettyTable
 
 host = "localhost"
 databaseName = "postOffice"
@@ -31,8 +31,6 @@ try:
     cur = conn.cursor()
 except Exception as error:
     print("Hata:", error)
-
-
 
 while True:
     print("Menü:")
@@ -99,8 +97,9 @@ while True:
                     print("\nDepo İşlemleri Menüsü")
                     print("1. Kargo Ekle")
                     print("2. Kargo Sil")
-                    print("3. Çıkış")
-                    secim = input("Lütfen bir seçenek numarası girin (1-3): ")
+                    print("3. Kurye Ata")
+                    print("4. Çıkış")
+                    secim = input("Lütfen bir seçenek numarası girin (1-4): ")
 
                     if secim == '1':
                         print("Müşteri bilgisini giriniz:")
@@ -135,6 +134,13 @@ while True:
                         mass = input("Kargo ağırlığı: ")
                         pack = pack.Pack(address, idCustomer, idStaff, 0, mass, 0, paymentType, 4, 0)
                         pack.AddPackTable(cur, conn)
+                        query = f"SELECT last_value FROM pack_id_seq";
+                        cur.execute(query)
+                        rows = cur.fetchall()
+                        id = rows[0][0]
+                        query = f"SELECT * FROM update_pack_cost({id}, {mass});"
+                        cur.execute(query)
+                        conn.commit()
                         print("Kargo kaydı başarıyla oluşturuldu.")
                     elif secim == '2':
                         print("Müşteri bilgisini giriniz:")
@@ -144,13 +150,28 @@ while True:
                         pack.Pack.DeletePack(idPack, cur, conn)
                         print("Kargo kaydı başarıyla silindi.")
                     elif secim == '3':
+                        query = f"SELECT pack.id, customer.priority FROM pack JOIN CUSTOMER ON customer.id = pack.customer WHERE courier = 0;"
+                        cur.execute(query)
+                        rows = cur.fetchall()
+                        if len(rows) == 0:
+                            print("\nKurye atanacak kargo bulunmamaktadır.")
+                        else:
+                            prettytable = PrettyTable()
+                            prettytable.field_names = ["ID", "Öncelik"]
+                            for row in rows:
+                                prettytable.add_row(row)
+                            print(prettytable)
+                            idPack = input("Kargo ID: ")
+                            tckn = input("Kurye TCKN: ")
+                            idCourier = courier.Courier.IsCourier(tckn, cur)
+                            query = f"UPDATE pack SET courier = {idCourier}, status = 3 WHERE id = {idPack};"
+                            cur.execute(query)
+                            conn.commit()
+                    elif secim == '4':
                         print("Programdan çıkılıyor...")
                         break
                     else:
-                        print("Geçersiz bir seçenek girdiniz.Lütfen 1-3 arasında bir seçenek belirtin.")
-
-
-
+                        print("Geçersiz bir seçenek girdiniz.Lütfen 1-4 arasında bir seçenek belirtin.")
 
     elif choice == "4":
         while True:
@@ -159,7 +180,6 @@ while True:
             id = courier.Courier.IsCourier(tckn, cur)
             if id == None:
                 break
-                print(pack.Pack.ListPacksCourier(id, cur))
             while True:
                 print(pack.Pack.ListPacksCourier(id, cur))
                 print("\nPaket İşlemleri Menüsü:")
@@ -169,11 +189,26 @@ while True:
                 idPack = int(input("\nKargo ID giriniz"))
                 secim = input("\nLütfen bir seçenek numarası girin (1-3): ")
                 if secim == "1":
+                    score = input("Kurye puanı(1-10): ")
+                    query = f"UPDATE PACK SET score = {score} WHERE id = {idPack};"
+                    cur.execute(query)
+                    conn.commit()
+                    query = f"UPDATE courier SET \"deliveredPack\" = \"deliveredPack\" + 1 WHERE id = {id};"
+                    cur.execute(query)
+                    conn.commit()
                     pack.Pack.UpdatePackStatus(idPack, cur, conn, 1)
+                    query = f"SELECT * FROM create_receipt({idPack});"
                     print("Paket teslim edildi.")
                 elif secim == "2":
                     pack.Pack.UpdatePackStatus(idPack, cur, conn, 2)
-                    print("Paket iptal edildi.")
+                    print("İptal edilen paketi depoya döndürmek ister misiniz?.")
+                    secim = input("Lütfen bir seçenek numarası girin (1-2): ")
+                    if secim == "1":
+                        query = f"SELECT * FROM update_pack_status_courier({idPack});"
+                        cur.execute(query)
+                        conn.commit()
+                        print("Paket depoya döndürüldü.")
+                        break
                 elif secim == "3":
                     print("Programdan çıkılıyor...")
                     break
