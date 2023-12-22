@@ -126,7 +126,6 @@ while True:
                             area = input("Mahalle adı: ")
                             detail = input("Adres detayı: ")
                             address = ad.Address(city, district, area, detail, idCustomer).QueryAddressTable(ad.Address(city, district, area, detail, idCustomer), cur, conn)
-
                         print("Ödeme tipini seçiniz:")
                         paymentType.PaymentType.ListPaymentType(cur)
                         paymentType = input("Ödeme tipi: ")
@@ -221,10 +220,6 @@ while True:
 
     else:
         print("Geçersiz bir seçenek girdiniz. Lütfen 1-5 arasında bir seçenek belirtin.")
-
-
-
-
 
 conn.close()
 cur.close()
